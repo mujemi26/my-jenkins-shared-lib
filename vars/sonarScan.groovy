@@ -1,12 +1,14 @@
-#!/usr/bin/env groovy
-// vars/sonarScan.groovy
-def call(Map config) {
-    withSonarQubeEnv('mySonarQube') {
-    sh """
-    ./gradlew sonarqube \
-      -Dsonar.projectKey=${config.projectKey} \
-      -Dsonar.projectName=${config.projectName} \
-      -Dsonar.host.url=${config.sonarHostUrl}
-    """
-    }
-}
+    def call(Map config = [:]) {
+       def projectKey = config.projectKey
+       def projectName = config.projectName
+       def sonarHostUrl = config.sonarHostUrl
+
+        withSonarQubeEnv('mySonarQube') {
+          sh """
+            ./gradlew sonar \
+                -Dsonar.projectKey=${projectKey} \
+                 -Dsonar.projectName="${projectName}" \
+                 -Dsonar.host.url=${sonarHostUrl}
+           """
+        }
+     }
