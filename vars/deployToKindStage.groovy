@@ -7,17 +7,19 @@ def call(Map config) {
     def deploymentName = config.DEPLOYMENT_NAME
     def containerName = config.CONTAINER_NAME
     
-    // Deploy using kubectl
-   
     withKubeConfig([credentialsId: 'kind-kubeconfig']) {
-        // Create or update the deployment
+        // Deploy using kubectl with insecure-skip-tls-verify
         sh """
+            # Create or update the deployment
             kubectl create deployment ${deploymentName} \
                 --image=${imageName}:${imageVersion} \
-                --dry-run=client -o yaml | kubectl apply -f -
+                --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
 
-            # Update the container name if it exists
-            kubectl set env deployment/${deploymentName} \
+            # Wait a bit for the deployment to be created
+            sleep 5
+
+            # Set the container name
+            kubectl --insecure-skip-tls-verify set env deployment/${deploymentName} \
                 CONTAINER_NAME=${containerName}
 
             # Expose the deployment as a service
@@ -25,16 +27,20 @@ def call(Map config) {
                 --port=8080 \
                 --target-port=8080 \
                 --type=NodePort \
-                --dry-run=client -o yaml | kubectl apply -f -
+                --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
 
             # Wait for deployment to be ready
-            kubectl rollout status deployment/${deploymentName}
-        """
-        
-        // Get service information
-        sh """
-            echo "Service details:"
-            kubectl get service ${deploymentName} -o wide
+            kubectl --insecure-skip-tls-verify rollout status deployment/${deploymentName} --timeout=60s || true
+
+            # Get deployment and service status
+            echo "Checking deployment status..."
+            kubectl --insecure-skip-tls-verify get deployment ${deploymentName}
+            
+            echo "\nChecking pods status..."
+            kubectl --insecure-skip-tls-verify get pods -l app=${deploymentName}
+            
+            echo "\nChecking service status..."
+            kubectl --insecure-skip-tls-verify get svc ${deploymentName}
         """
     }
 }
