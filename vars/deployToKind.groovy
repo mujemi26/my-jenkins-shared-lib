@@ -1,11 +1,33 @@
-#!/usr/bin/env groovy
-// vars/deployToKind.groovy
+  def call(Map config = [:]) {
+    def imageName = config.imageName
+    def version = config.version
+    def deploymentName = config.deploymentName
+    def containerName = config.containerName
 
-def call(Map config) {
-     def imageTag = "${config.imageName}:${config.version}";
-
-   sh """
-       kubectl apply -f deployment.yaml
-        kubectl set image deployment/${config.deploymentName} ${config.containerName}=${imageTag}
-    """
-}
+    withCredentials([string(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG')]) {
+      sh """
+         export KUBECONFIG=\${KUBECONFIG}
+         kubectl apply -f - <<EOF
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${deploymentName}
+            spec:
+               selector:
+                  matchLabels:
+                     app: ${containerName}
+                replicas: 1
+            template:
+                metadata:
+                  labels:
+                     app: ${containerName}
+              spec:
+                containers:
+                  - name: ${containerName}
+                     image: "${imageName}:${version}"
+                    ports:
+                      - containerPort: 8080
+        EOF
+         """
+     }
+  }
