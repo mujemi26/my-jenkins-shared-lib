@@ -6,7 +6,7 @@
          withSonarQubeEnv('mySonarQube') {
              withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                 sh """
-                     ./gradlew sonar
+                     ./gradlew sonar --stacktrace
                  """
                 sh """
                    ./gradlew -Dsonar.login=\${SONAR_TOKEN} \
