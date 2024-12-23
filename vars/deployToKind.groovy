@@ -1,13 +1,12 @@
-  def call(Map config = [:]) {
+ def call(Map config = [:]) {
     def imageName = config.imageName
     def version = config.version
     def deploymentName = config.deploymentName
     def containerName = config.containerName
 
     withCredentials([string(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG')]) {
-      sh """
-         export KUBECONFIG=\${KUBECONFIG}
-         kubectl apply -f - <<EOF
+          sh """
+             kubectl apply --kubeconfig <(echo "\${KUBECONFIG}") -f - <<EOF
             apiVersion: apps/v1
             kind: Deployment
             metadata:
@@ -15,19 +14,19 @@
             spec:
                selector:
                   matchLabels:
-                     app: ${containerName}
+                    app: ${containerName}
                 replicas: 1
             template:
                 metadata:
-                  labels:
-                     app: ${containerName}
-              spec:
-                containers:
-                  - name: ${containerName}
-                     image: "${imageName}:${version}"
+                 labels:
+                   app: ${containerName}
+                spec:
+                  containers:
+                    - name: ${containerName}
+                      image: "${imageName}:${version}"
                     ports:
-                      - containerPort: 8080
-        EOF
-         """
-     }
-  }
+                       - containerPort: 8080
+              EOF
+            """
+        }
+    }
