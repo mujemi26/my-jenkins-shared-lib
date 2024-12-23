@@ -1,34 +1,44 @@
+#!/usr/bin/env groovy
+
 def call(Map config = [:]) {
+    // Ensure required parameters are provided
+    if (!config.deploymentName || !config.containerName || !config.imageName || !config.imageVersion) {
+        error "Missing required parameters. Please provide deploymentName, containerName, imageName, and imageVersion."
+    }
+
     withCredentials([string(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG')]) {
-          def deploymentManifest = """
-                   apiVersion: apps/v1
-                    kind: Deployment
-                    metadata:
-                       name: "${env.DEPLOYMENT_NAME}"
-                    spec:
-                       selector:
-                           matchLabels:
-                             app: "${env.CONTAINER_NAME}"
-                        replicas: 1
-                    template:
-                      metadata:
-                          labels:
-                             app: "${env.CONTAINER_NAME}"
-                       spec:
-                           containers:
-                              - name: "${env.CONTAINER_NAME}"
-                                image: "${env.DOCKER_IMAGE_NAME}:${env.DOCKER_IMAGE_VERSION}"
-                                ports:
-                                   - containerPort: 8080
-                    """
-              stage('Deploy to Kind') {
-                  steps {
-                     sh """
-                        echo "${deploymentManifest}" > deployment.yaml
-                        kubectl apply --kubeconfig <(echo "\${KUBECONFIG}".replaceAll('(?m)^ *certificate-authority-data:.*$', '')) --insecure-skip-tls-verify -f deployment.yaml
-                        rm deployment.yaml
-                      """
-                     }
-                  }
-              }
-          }
+        // Define the Kubernetes deployment manifest
+        def deploymentManifest = """
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${config.deploymentName}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${config.containerName}
+  template:
+    metadata:
+      labels:
+        app: ${config.containerName}
+    spec:
+      containers:
+      - name: ${config.containerName}
+        image: ${config.imageName}:${config.imageVersion}
+        ports:
+        - containerPort: 8080
+"""
+
+        script {
+            // Write the deployment manifest to a file
+            writeFile file: 'deployment.yaml', text: deploymentManifest
+
+            // Apply the deployment using kubectl with the provided KUBECONFIG
+            sh 'kubectl apply -f deployment.yaml'
+
+            // Clean up the manifest file
+            sh 'rm deployment.yaml'
+        }
+    }
+}
