@@ -25,13 +25,13 @@ def call(Map config = [:]) {
               """
       stage('Deploy to Kind Cluster') {
         steps {
-           sh """
-             echo "$KUBECONFIG".replaceAll('(?m)^ *certificate-authority-data:.*$', '') > kubeconfig.tmp
+           sh '''
+             echo "$KUBECONFIG" | sed -E 's/^ *certificate-authority-data:.*$//' > kubeconfig.tmp
              kubectl apply --kubeconfig kubeconfig.tmp --insecure-skip-tls-verify -f - <<EOF
-              ${deploymentManifest}
-              EOF
-           rm kubeconfig.tmp
-         """
+             ${deploymentManifest}
+             EOF
+             rm kubeconfig.tmp
+           '''
        }
     }
   }
