@@ -1,38 +1,40 @@
-def call(Map config = [:]) {
-   withCredentials([string(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG')]) {
-     def deploymentManifest = """
-         apiVersion: apps/v1
-         kind: Deployment
-         metadata:
-             name: ${config.DEPLOYMENT_NAME}
-             labels:
-                app: ${config.CONTAINER_NAME}
-         spec:
-           selector:
-              matchLabels:
-               app: ${config.CONTAINER_NAME}
-            replicas: 1
-          template:
-               metadata:
-                  labels:
-                    app: ${config.CONTAINER_NAME}
-                spec:
-                   containers:
-                     - name: ${config.CONTAINER_NAME}
-                      image: "${config.DOCKER_IMAGE_NAME}:${config.DOCKER_IMAGE_VERSION}"
-                      ports:
-                         - containerPort: 8080
-              """
-      stage('Deploy to Kind Cluster') {
-        steps {
-           sh '''
-             echo "$KUBECONFIG" | sed -E 's/^ *certificate-authority-data:.*$//' > kubeconfig.tmp
-             kubectl apply --kubeconfig kubeconfig.tmp --insecure-skip-tls-verify -f - <<EOF
-             ${deploymentManifest}
-             EOF
-             rm kubeconfig.tmp
-           '''
-       }
+#!/usr/bin/env groovy
+
+def call(Map config) {
+    // Extract parameters from config
+    def imageName = config.DOCKER_IMAGE_NAME
+    def imageVersion = config.DOCKER_IMAGE_VERSION
+    def deploymentName = config.DEPLOYMENT_NAME
+    def containerName = config.CONTAINER_NAME
+    
+    // Deploy using kubectl
+   
+    withKubeConfig([credentialsId: 'kind-kubeconfig']) {
+        // Create or update the deployment
+        sh """
+            kubectl create deployment ${deploymentName} \
+                --image=${imageName}:${imageVersion} \
+                --dry-run=client -o yaml | kubectl apply -f -
+
+            # Update the container name if it exists
+            kubectl set env deployment/${deploymentName} \
+                CONTAINER_NAME=${containerName}
+
+            # Expose the deployment as a service
+            kubectl expose deployment ${deploymentName} \
+                --port=8080 \
+                --target-port=8080 \
+                --type=NodePort \
+                --dry-run=client -o yaml | kubectl apply -f -
+
+            # Wait for deployment to be ready
+            kubectl rollout status deployment/${deploymentName}
+        """
+        
+        // Get service information
+        sh """
+            echo "Service details:"
+            kubectl get service ${deploymentName} -o wide
+        """
     }
-  }
 }
